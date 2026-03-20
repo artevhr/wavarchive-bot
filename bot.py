@@ -45,7 +45,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def get_title(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data['title'] = update.message.text.strip()
     await update.message.reply_text(
-        f"✅ *{ctx.user_data['title']}*\n\n2️⃣ Напиши *имя артиста*:",
+        f"✅ {ctx.user_data['title']}\n\n2️⃣ Напиши имя артиста:",
         
     )
     return ARTIST
@@ -54,7 +54,7 @@ async def get_title(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def get_artist(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data['artist'] = update.message.text.strip()
     await update.message.reply_text(
-        f"✅ *{ctx.user_data['artist']}*\n\n3️⃣ Напиши *название альбома* (или «нет»):",
+        f"✅ {ctx.user_data['artist']}\n\n3️⃣ Напиши название альбома (или «нет»):",
         
     )
     return ALBUM
@@ -114,13 +114,13 @@ async def get_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     d = ctx.user_data
     caption = (
-        f"🎵 *Новый трек на проверку*\n\n"
-        f"👤 От: {md(d['from_name'])} `{d['from_id']}`\n"
-        f"🎶 Название: *{md(d['title'])}*\n"
-        f"🎤 Артист: *{md(d['artist'])}*\n"
-        f"💿 Альбом: {md(d['album']) if d['album'] else '—'}\n"
+        f"🎵 Новый трек на проверку\n\n"
+        f"👤 От: {d['from_name']} ({d['from_id']})\n"
+        f"🎶 Название: {d['title']}\n"
+        f"🎤 Артист: {d['artist']}\n"
+        f"💿 Альбом: {d['album'] or '—'}\n"
         f"🕐 Длина: {duration}с\n"
-        f"📁 Файл: `{md(fname)}`"
+        f"📁 Файл: {fname}"
     )
     kb = InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve_{d['from_id']}"),
@@ -177,12 +177,12 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         try:
             await add_track_to_github(sub, ctx)
             await query.edit_message_caption(
-                (query.message.caption or '') + "\n\n✅ *ПОДТВЕРЖДЕНО И ДОБАВЛЕНО*",
+                (query.message.caption or '') + "\n\n✅ ПОДТВЕРЖДЕНО И ДОБАВЛЕНО",
                 
             )
             await ctx.bot.send_message(
                 user_id,
-                f"🎉 Твой трек *{sub['title']}* одобрен и добавлен на WAVARCHIVE!\n\n"
+                f"🎉 Твой трек {sub['title']} одобрен и добавлен на WAVARCHIVE!\n\n"
                 f"🎧 Слушай: {SITE_URL}",
                 
             )
@@ -198,7 +198,7 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         ctx.bot_data[f'awaiting_reason_{user_id}'] = sub
         await ctx.bot.send_message(
             ADMIN_ID,
-            f"Напиши причину отклонения трека *{sub['title']}*\n(или «—» без причины):",
+            f"Напиши причину отклонения трека {sub['title']}\n(или «—» без причины):",
             
         )
         await query.edit_message_caption(
@@ -218,14 +218,14 @@ async def handle_admin_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     user_id = sub['from_id']
     reason  = update.message.text.strip()
 
-    msg = f"😔 Твой трек *{sub['title']}* был отклонён."
+    msg = f"😔 Твой трек {sub['title']} был отклонён."
     if reason and reason not in ('—', '-', 'нет', 'no'):
         msg += f"\n\n📝 Причина: _{reason}_"
     msg += "\n\nЕсли хочешь попробовать снова — /start"
 
     await ctx.bot.send_message(user_id, msg)
     await update.message.reply_text(
-        f"✅ Трек *{sub['title']}* отклонён, артист уведомлён.",
+        f"✅ Трек {sub['title']} отклонён, артист уведомлён.",
         
     )
 
