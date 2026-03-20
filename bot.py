@@ -240,8 +240,12 @@ def gh_request(path: str, method: str = 'GET', body: dict = None):
     }
     data = json.dumps(body).encode() if body else None
     req  = urllib.request.Request(url, data=data, headers=headers, method=method)
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.loads(r.read())
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        body_text = e.read().decode('utf-8', errors='replace')
+        raise Exception(f"HTTP {e.code}: {body_text[:300]}") from e
 
 
 async def add_track_to_github(sub: dict, ctx: ContextTypes.DEFAULT_TYPE):
@@ -255,21 +259,14 @@ async def add_track_to_github(sub: dict, ctx: ContextTypes.DEFAULT_TYPE):
     safe = lambda s: re.sub(r'[^a-z0-9]+', '-', s.lower()).strip('-')
     artist_slug = safe(sub['artist'])
     title_slug  = safe(sub['title'])
-    mp3_path    = f"tracks/{artist_slug}/{title_slug}.mp3"
+    # Add timestamp to avoid filename conflicts
+    mp3_path    = f"tracks/{artist_slug}/{title_slug}-{int(time.time())}.mp3"
 
-    # 3. Upload MP3 — check if exists first
-    try:
-        existing = gh_request(mp3_path)
-        sha_mp3  = existing.get('sha')
-    except Exception:
-        sha_mp3  = None
-
+    # 3. Upload MP3 — timestamp name guarantees no conflict
     upload_body = {
         'message': f'Add track: {sub["title"]} by {sub["artist"]}',
         'content': base64.b64encode(mp3_bytes).decode()
     }
-    if sha_mp3:
-        upload_body['sha'] = sha_mp3
 
     gh_request(mp3_path, 'PUT', upload_body)
     logger.info(f"MP3 uploaded: {mp3_path}")
