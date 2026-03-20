@@ -37,7 +37,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         "👋 Привет! Отправь свой трек на *WAVARCHIVE*.\n\n"
         "Я задам 5 вопросов по порядку. Начнём!\n\n"
         "1️⃣ Напиши *название трека*:",
-        parse_mode="Markdown"
+        
     )
     return TITLE
 
@@ -46,7 +46,7 @@ async def get_title(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data['title'] = update.message.text.strip()
     await update.message.reply_text(
         f"✅ *{ctx.user_data['title']}*\n\n2️⃣ Напиши *имя артиста*:",
-        parse_mode="Markdown"
+        
     )
     return ARTIST
 
@@ -55,7 +55,7 @@ async def get_artist(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data['artist'] = update.message.text.strip()
     await update.message.reply_text(
         f"✅ *{ctx.user_data['artist']}*\n\n3️⃣ Напиши *название альбома* (или «нет»):",
-        parse_mode="Markdown"
+        
     )
     return ALBUM
 
@@ -66,7 +66,7 @@ async def get_album(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "4️⃣ Пришли *обложку альбома* (фото или файл).\n"
         "Если нет — напиши «нет»:",
-        parse_mode="Markdown"
+        
     )
     return COVER
 
@@ -86,7 +86,7 @@ async def get_cover(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return COVER
     await update.message.reply_text(
         "5️⃣ Последний шаг — пришли *файл трека* (MP3):",
-        parse_mode="Markdown"
+        
     )
     return FILE
 
@@ -132,7 +132,7 @@ async def get_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     admin_msg = await ctx.bot.send_document(
         ADMIN_ID, fid, caption=caption,
-        parse_mode="Markdown", reply_markup=kb
+        reply_markup=kb
     )
 
     pending[d['from_id']] = {**d, 'admin_msg_id': admin_msg.message_id}
@@ -166,7 +166,7 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not sub:
         await query.edit_message_caption(
             (query.message.caption or '') + "\n\n⚠️ Данные устарели — перезапусти бота",
-            parse_mode="Markdown"
+            
         )
         return
 
@@ -178,19 +178,19 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             await add_track_to_github(sub, ctx)
             await query.edit_message_caption(
                 (query.message.caption or '') + "\n\n✅ *ПОДТВЕРЖДЕНО И ДОБАВЛЕНО*",
-                parse_mode="Markdown"
+                
             )
             await ctx.bot.send_message(
                 user_id,
                 f"🎉 Твой трек *{sub['title']}* одобрен и добавлен на WAVARCHIVE!\n\n"
                 f"🎧 Слушай: {SITE_URL}",
-                parse_mode="Markdown"
+                
             )
         except Exception as e:
             logger.error(f"GitHub upload error: {e}")
             await query.edit_message_caption(
                 (query.message.caption or '') + f"\n\n❌ Ошибка загрузки в GitHub: {e}",
-                parse_mode="Markdown"
+                
             )
         pending.pop(user_id, None)
 
@@ -199,7 +199,7 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await ctx.bot.send_message(
             ADMIN_ID,
             f"Напиши причину отклонения трека *{sub['title']}*\n(или «—» без причины):",
-            parse_mode="Markdown"
+            
         )
         await query.edit_message_caption(
             (query.message.caption or '') + "\n\n⏳ Ожидаю причину отклонения...",
@@ -223,10 +223,10 @@ async def handle_admin_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         msg += f"\n\n📝 Причина: _{reason}_"
     msg += "\n\nЕсли хочешь попробовать снова — /start"
 
-    await ctx.bot.send_message(user_id, msg, parse_mode="Markdown")
+    await ctx.bot.send_message(user_id, msg)
     await update.message.reply_text(
         f"✅ Трек *{sub['title']}* отклонён, артист уведомлён.",
-        parse_mode="Markdown"
+        
     )
 
     pending.pop(user_id, None)
@@ -260,11 +260,27 @@ async def add_track_to_github(sub: dict, ctx: ContextTypes.DEFAULT_TYPE):
         mp3_bytes = r.read()
 
     # 2. Build safe file path
-    safe = lambda s: re.sub(r'[^a-z0-9]+', '-', s.lower()).strip('-')
-    artist_slug = safe(sub['artist'])
-    title_slug  = safe(sub['title'])
-    # Add timestamp to avoid filename conflicts
-    mp3_path    = f"tracks/{artist_slug}/{title_slug}-{int(time.time())}.mp3"
+    def translit(s: str) -> str:
+        """Transliterate Russian to Latin, clean for file paths."""
+        ru = {'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo',
+              'ж':'zh','з':'z','и':'i','й':'y','к':'k','л':'l','м':'m',
+              'н':'n','о':'o','п':'p','р':'r','с':'s','т':'t','у':'u',
+              'ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh','щ':'sch',
+              'ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya',
+              'А':'a','Б':'b','В':'v','Г':'g','Д':'d','Е':'e','Ё':'yo',
+              'Ж':'zh','З':'z','И':'i','Й':'y','К':'k','Л':'l','М':'m',
+              'Н':'n','О':'o','П':'p','Р':'r','С':'s','Т':'t','У':'u',
+              'Ф':'f','Х':'kh','Ц':'ts','Ч':'ch','Ш':'sh','Щ':'sch',
+              'Ъ':'','Ы':'y','Ь':'','Э':'e','Ю':'yu','Я':'ya'}
+        result = ''.join(ru.get(c, c) for c in s)
+        result = re.sub(r'[^a-z0-9]+', '-', result.lower()).strip('-')
+        return result or 'track'
+
+    artist_slug = translit(sub['artist'])
+    title_slug  = translit(sub['title'])
+    ts          = int(time.time())
+    mp3_path    = f"tracks/{artist_slug}/{title_slug}-{ts}.mp3"
+    cover_path  = None
 
     # 3. Upload MP3 — timestamp name guarantees no conflict
     upload_body = {
@@ -290,7 +306,7 @@ async def add_track_to_github(sub: dict, ctx: ContextTypes.DEFAULT_TYPE):
         "genre":       "другое",
         "duration":    sub.get('duration', 0),
         "file":        mp3_path,
-        "cover":       None,
+        "cover":       cover_path,
         "albumCover":  None,
         "description": "",
         "tags":        [],
