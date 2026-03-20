@@ -6,6 +6,12 @@ from telegram.ext import (Application, CommandHandler, MessageHandler,
                            CallbackQueryHandler, ConversationHandler,
                            filters, ContextTypes)
 
+def md(text: str) -> str:
+    """Escape Markdown v1 special characters."""
+    for ch in ['_', '*', '`', '[']:
+        text = text.replace(ch, '\\' + ch)
+    return text
+
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
@@ -109,12 +115,12 @@ async def get_file(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     d = ctx.user_data
     caption = (
         f"🎵 *Новый трек на проверку*\n\n"
-        f"👤 От: [{d['from_name']}](tg://user?id={d['from_id']}) `{d['from_id']}`\n"
-        f"🎶 Название: *{d['title']}*\n"
-        f"🎤 Артист: *{d['artist']}*\n"
-        f"💿 Альбом: {d['album'] or '—'}\n"
+        f"👤 От: {md(d['from_name'])} `{d['from_id']}`\n"
+        f"🎶 Название: *{md(d['title'])}*\n"
+        f"🎤 Артист: *{md(d['artist'])}*\n"
+        f"💿 Альбом: {md(d['album']) if d['album'] else '—'}\n"
         f"🕐 Длина: {duration}с\n"
-        f"📁 Файл: `{fname}`"
+        f"📁 Файл: `{md(fname)}`"
     )
     kb = InlineKeyboardMarkup([[
         InlineKeyboardButton("✅ Подтвердить", callback_data=f"approve_{d['from_id']}"),
@@ -167,7 +173,6 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if action == 'approve':
         await query.edit_message_caption(
             (query.message.caption or '') + "\n\n⏳ Загружаю в GitHub...",
-            parse_mode="Markdown"
         )
         try:
             await add_track_to_github(sub, ctx)
@@ -198,7 +203,6 @@ async def handle_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         )
         await query.edit_message_caption(
             (query.message.caption or '') + "\n\n⏳ Ожидаю причину отклонения...",
-            parse_mode="Markdown"
         )
 
 
